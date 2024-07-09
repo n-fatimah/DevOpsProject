@@ -12,8 +12,8 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_instance" "example" {
-  ami           = "ami-07c8c1b18ca66bb07" # Replace with your AMI ID
-  instance_type = "t2.micro"              # Free tier eligible
+  ami           = "ami-04a81a99f5ec58529"
+  instance_type = "t2.micro"    
 
   subnet_id = aws_subnet.public.id
 
@@ -21,4 +21,5 @@ resource "aws_instance" "example" {
     Name = "HelloWorldInstance"
   }
 }
+
 
