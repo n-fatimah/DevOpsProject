@@ -4,7 +4,19 @@ provider "aws" {
 
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
+  enable_dns_support = true
+  enable_dns_hostnames = true
 }
+
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "main-igw"
+  }
+}
+
 
 resource "aws_subnet" "public" {
   vpc_id     = aws_vpc.main.id
@@ -12,16 +24,98 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 }
 
-resource "aws_instance" "example" {
-  ami           = "ami-04a81a99f5ec58529"
-  instance_type = "t2.micro"    
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
 
-  subnet_id = aws_subnet.public.id
-  associate_public_ip_address = true
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
 
   tags = {
-    Name = "HelloWorldInstance2"
+    Name = "public-route-table"
   }
 }
 
+
+resource "aws_route_table_association" "public_subnet_association" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+
+resource "aws_security_group" "instance_sg" {
+  name        = "instance_sg"
+  description = "Security group for EC2 instance"
+  vpc_id      = aws_vpc.main.id
+
+  // Inbound rules
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  // Allow SSH access from anywhere
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  // Allow HTTP access from anywhere
+  }
+
+  // Outbound rules
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]  // Allow all outbound traffic
+  }
+
+  tags = {
+    Name = "instance_sg"
+  }
+}
+
+resource "aws_instance" "example" {
+  ami                    = "ami-0a0e5d9c7acc336f1"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.public.id
+  associate_public_ip_address = true
+
+  key_name = "firstkeypair"  
+
+  security_groups = [aws_security_group.instance_sg.id]
+
+  tags = {
+    Name = "testinstance4"
+  }
+  
+ 
+  
+  
+}
+
+
+resource "null_resource" "ansible_provisioner" {
+  depends_on = [aws_instance.example]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.example.public_ip
+    user        = "ubuntu"
+    private_key = file("../ansible/firstkeypair.pem")
+    timeout     = "2m"  # Adjust timeout as needed
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      sleep 80  # Wait for 30 seconds to ensure instance is ready
+      echo "[ec2]" > ../ansible/inventory
+      echo "${aws_instance.example.public_ip} ansible_ssh_private_key_file=../ansible/firstkeypair.pem ansible_user=ubuntu" >> ../ansible/inventory
+      ansible-playbook -i ../ansible/inventory --ssh-extra-args="-o StrictHostKeyChecking=no" ../ansible/configure_ec2.yml
+    EOT
+  }
+}
+ 
 

@@ -1,0 +1,36 @@
+---
+- name: Configure EC2 instance with Docker and Docker Compose
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - docker.io
+          - python3-pip
+        state: present
+
+    - name: Install Docker Compose
+      pip:
+        name: docker-compose
+        state: present
+        executable: pip3
+
+    - name: Print Docker version
+      command: docker --version
+      register: docker_version
+
+    - debug:
+        var: docker_version.stdout
+
+    - name: Print Docker Compose version
+      command: docker-compose --version
+      register: docker_compose_version
+
+    - debug:
+        var: docker_compose_version.stdout
+
