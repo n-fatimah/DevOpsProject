@@ -88,7 +88,7 @@ resource "aws_instance" "example" {
   security_groups = [aws_security_group.instance_sg.id]
 
   tags = {
-    Name = "testinstance4"
+    Name = "instanceByCICD"
   }
   
  
