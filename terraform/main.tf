@@ -96,26 +96,3 @@ resource "aws_instance" "example" {
   
 }
 
-
-resource "null_resource" "ansible_provisioner" {
-  depends_on = [aws_instance.example]
-
-  connection {
-    type        = "ssh"
-    host        = aws_instance.example.public_ip
-    user        = "ubuntu"
-    private_key = file("../ansible/firstkeypair.pem")
-    timeout     = "2m"  # Adjust timeout as needed
-  }
-
-  provisioner "local-exec" {
-    command = <<EOT
-      sleep 80  # Wait for 30 seconds to ensure instance is ready
-      echo "[ec2]" > ../ansible/inventory
-      echo "${aws_instance.example.public_ip} ansible_ssh_private_key_file=../ansible/firstkeypair.pem ansible_user=ubuntu" >> ../ansible/inventory
-      ansible-playbook -i ../ansible/inventory --ssh-extra-args="-o StrictHostKeyChecking=no" ../ansible/configure_ec2.yml
-    EOT
-  }
-}
- 
-
